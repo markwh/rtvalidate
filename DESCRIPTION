@@ -1,0 +1,28 @@
+Package: rtvalidate
+Type: Package
+Title: Validation functions for SWOT rivertile data
+Version: 0.0.1.9000
+Authors@R: person("Mark", "Hagemann", email = "mark.hagemann@gmail.com", 
+    role = c("aut", "cre"))
+Description: Functions accompanying uncertainty validation study for SWOT nodes and reaches.
+License: GPL-3
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 6.1.1
+Depends: 
+    ggplot2,
+    rivertile
+Imports: 
+    dplyr,
+    fs,
+    ncdf4,
+    purrr,
+    tidyr,
+    plyr,
+    ggmap,
+    progress,
+    stats,
+    rlang,
+    RColorBrewer
+Suggests: 
+    leaflet
