@@ -43,7 +43,7 @@ rt_valdata_df <- function(obs, truth, time_round_digits = -2) {
   # Corresponding uncertainty variables
   # TODO: switch to full uncertainties when implemented.
   uncnames <- setNames(
-    c("wse_r_u", "slope_u", "width_u", "area_det_u", "area_tot_u",
+    c("wse_r_u", "slope_r_u", "width_u", "area_det_u", "area_tot_u",
       "latitude_u", "longitud_u"),
     varnames
   )
@@ -64,10 +64,10 @@ rt_valdata_df <- function(obs, truth, time_round_digits = -2) {
   # Join together, including "common" variables
   commondf <- obs[c(idvars, commonvars)]
   out <- obs_g %>%
-    left_join(truth_g, by = c(idvars, "variable")) %>%
+    inner_join(truth_g, by = c(idvars, "variable")) %>%
     dplyr::mutate(pixc_err = pixc_val - gdem_val) %>%
-    left_join(uncdf_g, by = c(idvars, "variable")) %>%
-    left_join(commondf, by = idvars)
+    inner_join(uncdf_g, by = c(idvars, "variable")) %>%
+    inner_join(commondf, by = idvars)
 
   out
 }
@@ -192,18 +192,20 @@ val_coverage <- function(valdata, ci = c(68, 90, 95, 99), debias = FALSE) {
 #' @param n Number of bad nodes to return
 #' @param which "abs" for worst absolute errors, "min" for worst
 #'  negative errors, "max" for worst positive errors
+#' @param standardize scale by estimated uncertainty? Default is \code{FALSE}.
 #'
 #' @export
 badnodes <- function(valdata, variable = "width", n = 4,
-                     which = c("abs", "min", "max")) {
+                     which = c("abs", "min", "max"), standardize = FALSE) {
   which <- match.arg(which)
   valdata <- valdata[valdata[["variable"]] == variable, ]
   errvec <- valdata$pixc_err
+  if (standardize) errvec <- errvec / valdata$sigma_est
   if (which == "abs") errvec <- -abs(errvec) else
     if (which == "max") errvec <- -errvec
-  
+
   badords <- order(errvec)[1:n]
-  
+
   out <- valdata$node_id[badords]
   out
 }
