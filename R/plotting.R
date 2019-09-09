@@ -373,3 +373,102 @@ looerr_plot <- function(valdf, reach_ids = "all",
     geom_line(aes(y = cum_relerr, color = reach_id, group = reach_id)) +
     facet_wrap(~variable, scales = "free")
 }
+
+
+
+#' Plot error accmulation from nodes to reaches
+#'
+#' @param nodevaldf as returned by \code{rt_valdata(group = "node")}
+#' @param var variable to accumulate
+#' @param scale what to scale errors by--"none" for raw errors
+#' @param plot if FALSE return the plot data only
+#'
+#' @export
+rt_cumulplot <- function(nodevaldf, var = c("wse", "width", "area_total"),
+                         scale = c("none", "truth", "unc"),
+                         plot = TRUE) {
+  var <- match.arg(var)
+  scale <- match.arg(scale)
+
+  filtvar <- ifelse(var == "width", "area_total", var)
+  errdf <- nodevaldf %>%
+    filter(variable == filtvar) %>%
+    group_by(reach_id) %>%
+    arrange(node_id) %>%
+    mutate(relerr = pixc_err / gdem_val,
+           stderr = pixc_err / sigma_est,
+           denom = 1,  # will be different for different variables
+           n = row_number()) %>%
+    ungroup()
+
+
+  npernode <- table(as.factor(errdf$node_id))
+  if (max(npernode) > 1)
+    stop("nodevaldf cannot have >1 observation per node and variable")
+
+  if (var == "width") {
+    widthdf <- nodevaldf %>%
+      filter(variable == "width") %>%
+      transmute(node_id, width_val = pixc_val, width_unc = sigma_est,
+                width_tru = gdem_val)
+
+    errdf <- errdf %>%
+      left_join(widthdf, by = "node_id") %>%
+      group_by(reach_id) %>%
+      arrange(node_id) %>%
+      mutate(length_val = pixc_val / width_val,
+             length_tru = gdem_val / width_tru,
+             cumlen = nacumsum(length_val),
+             denom = cumlen) %>%
+      ungroup()
+  } else if (var == "wse") {
+    errdf$denom <- errdf$n
+  }
+
+  # add cumulative error, uncertainty estimate, truth
+  errdf <- errdf %>%
+    group_by(reach_id) %>%
+    arrange(node_id) %>%
+    mutate(cumerr = nacumsum(pixc_err) / denom,
+           cumunc = sqrt(nacumsum(sigma_est^2)) / denom,
+           cumtru = nacumsum(gdem_val) / denom) %>%
+    ungroup()
+
+  if (scale == "truth") {
+    errdf$error <- errdf$relerr
+    errdf$`cumul. error` <- errdf$cumerr / errdf$cumtru
+    ylab <- "Error relative to truth"
+  } else if (scale == "unc") {
+    errdf$error <- errdf$stderr
+    errdf$`cumul. error` <- errdf$cumerr / errdf$cumunc
+    ylab <- "Error relative to uncertainty"
+  } else if (scale == "none") {
+    errdf$error <- errdf$pixc_err
+    errdf$`cumul. error` <- errdf$cumerr
+    ylab <- "Error"
+
+    if (var == "width") {
+      errdf$error <- errdf$width_val - errdf$width_tru
+    }
+  }
+
+  plotdf <- errdf %>%
+    select(node_id, reach_id, variable, error, `cumul. error`) %>%
+    gather(key = "errtype", value = "y", -node_id:-variable) %>%
+    mutate(reach_id = as.factor(reach_id))
+
+  if (!plot) return(plotdf)
+
+  rugdf <- plotdf %>%
+    group_by(reach_id) %>%
+    filter(node_id == min(node_id)) %>%
+    ungroup()
+
+  # ggplot to return
+  out <- ggplot(plotdf, aes(x = node_id, y = y, color = reach_id)) +
+    geom_line() +
+    facet_grid(rows = vars(errtype), scales = "free_y") +
+    geom_rug(sides = "b", data = rugdf) +
+    ylab(ylab)
+  out
+}

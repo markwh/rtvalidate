@@ -6,7 +6,8 @@
 \usage{
 rt_valdata(dir, group = c("nodes", "reaches"), rtname = "rt.nc",
   gdname = "rt_gdem.nc", keep_na_vars = FALSE,
-  time_round_digits = -2, flag_out_nodes = TRUE)
+  time_round_digits = -2, flag_out_nodes = TRUE, rmnodes = NULL,
+  force_agg = FALSE)
 }
 \arguments{
 \item{dir}{directory containing riverobs output including gdem truth}
@@ -23,6 +24,10 @@ rt_valdata(dir, group = c("nodes", "reaches"), rtname = "rt.nc",
 consider equal between gdem pixc and "real" pixc}
 
 \item{flag_out_nodes}{Automatically flag and remove nodes with ambiguous truth?}
+
+\item{rmnodes}{Additional nodes to remove}
+
+\item{force_agg}{For reach data only: use \code{force = TRUE} in \code{add_nodelen()}?}
 }
 \description{
 Get a validation dataset from a set of RiverObs runs

@@ -82,6 +82,8 @@ rt_valdata_df <- function(obs, truth, time_round_digits = -2) {
 #' @param time_round_digits how many digits to round time (secondes) to
 #'  consider equal between gdem pixc and "real" pixc
 #' @param flag_out_nodes Automatically flag and remove nodes with ambiguous truth?
+#' @param rmnodes Additional nodes to remove
+#' @param force_agg For reach data only: use \code{force = TRUE} in \code{add_nodelen()}?
 #'
 #' @importFrom dplyr left_join
 #' @importFrom tidyr gather
@@ -90,21 +92,47 @@ rt_valdata <- function(dir, group = c("nodes", "reaches"),
                        rtname = "rt.nc", gdname = "rt_gdem.nc",
                        keep_na_vars = FALSE,
                        time_round_digits = -2,
-                       flag_out_nodes = TRUE) {
+                       flag_out_nodes = TRUE, rmnodes = NULL,
+                       force_agg = FALSE) {
   group <- match.arg(group)
   rtdf <- rt_read(paste0(dir, "/", rtname), group = group,
                   keep_na_vars = keep_na_vars)
   gddf <- rt_read(paste0(dir, "/", gdname), group = group,
                   keep_na_vars = keep_na_vars)
 
-  out <- rt_valdata_df(obs = rtdf, truth = gddf, time_round_digits = -2)
-
-  if (group == "nodes" && flag_out_nodes) { # prune bad nodes
+  if (flag_out_nodes || (!is.null(rmnodes))) {
     rmnodes1 <- ambiguous_nodes(dir)
-    rmnodes2 <- mismatch_nodes(rtdf, gddf)
-    rmnodes <- c(rmnodes1, rmnodes2)
-    out <- out[!out[["node_id"]] %in% rmnodes, ]
+
+    if (group == "nodes") {
+      rmnodes2 <- mismatch_nodes(rtdf, gddf)
+      rmnodes_final <- c(rmnodes1, rmnodes2, rmnodes)
+
+      rtdf <- rtdf[!(rtdf[["node_id"]] %in% rmnodes_final), ]
+    } else {
+      stopifnot(group == "reaches")
+      nodedf <- rt_read(paste0(dir, "/", rtname), group = "nodes",
+                      keep_na_vars = keep_na_vars)
+      gdnodedf <- rt_read(paste0(dir, "/", gdname), group = "nodes",
+                          keep_na_vars = keep_na_vars)
+
+      rmnodes2 <- mismatch_nodes(nodedf, gdnodedf)
+      rmnodes_final <- c(rmnodes1, rmnodes2, rmnodes)
+      # browser()
+
+      nodedf <- add_nodelen(nodedf, force = force_agg)
+      nodedf <- add_offset(nodedf, rtdf)
+      nodedf <- nodedf[!(nodedf$node_id %in% rmnodes_final), ]
+      rtdf <- reach_agg(nodedf)
+
+      gdnodedf <- add_nodelen(gdnodedf, force = force_agg)
+      gdnodedf <- add_offset(gdnodedf, gddf)
+      gdnodedf <- gdnodedf[!(gdnodedf$node_id %in% rmnodes_final), ]
+      gdnodedf$wse_r_u <- rep(0, nrow(gdnodedf))
+      gddf <- reach_agg(gdnodedf, weight = FALSE)
+    }
   }
+  if (!length(rtdf$reach_id)) return(NULL)
+  out <- rt_valdata_df(obs = rtdf, truth = gddf, time_round_digits = -2)
 
   out
 }
