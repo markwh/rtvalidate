@@ -240,12 +240,27 @@ val_map_node <- function(dir, nodes = badnodes(rt_valdata(dir)),
 #' @param pixc_joined A joined pixc data frame, as returned by \code{join_pixc()}
 #' @param nodes Vector giving indices of nodes to plot
 #' @param node_truth Optional truth data, as returned by \code{rt_read()}
+#' @param aggmethod aggregation method from pixels to nodes
 #' @param plot if FALSE, return the plot data but don't construct the ggplot
 #' @export
-nodearea_plot <- function(pixc_joined, nodes, node_truth = NULL, plot = TRUE) {
+nodearea_plot <- function(pixc_joined, nodes, node_truth = NULL,
+                          aggmethod = c("composite", "frac", "simple"),
+                          plot = TRUE) {
+
+  aggmethod <- match.arg(aggmethod)
   sumrydf <- pixc_joined %>%
     dplyr::filter(node_index %in% nodes) %>%
-    dplyr::mutate(water_frac = ifelse(classification < 20, water_frac, 1)) %>%
+    dplyr::mutate(numclass = as.numeric(as.character(classification)),
+                  water_frac = ifelse(numclass < 20, water_frac, 1))
+
+  # Account for different aggregation methods' treatment of water fraction
+  if (aggmethod == "composite") {
+    sumrydf$water_frac[sumrydf$classification == 4] <- 1
+  } else if (aggmethod == "simple") {
+    sumrydf$water_frac <- 1
+  }
+
+  sumrydf <- sumrydf %>%
     group_by(node_index) %>%
     dplyr::arrange(desc(water_frac)) %>%
     mutate(cum_area = cumsum(pixel_area),
@@ -453,7 +468,7 @@ rt_cumulplot <- function(nodevaldf, var = c("wse", "width", "area_total"),
   }
 
   plotdf <- errdf %>%
-    select(node_id, reach_id, variable, error, `cumul. error`) %>%
+    dplyr::select(node_id, reach_id, variable, error, `cumul. error`) %>%
     gather(key = "errtype", value = "y", -node_id:-variable) %>%
     mutate(reach_id = as.factor(reach_id))
 

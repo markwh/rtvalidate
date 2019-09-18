@@ -4,7 +4,8 @@
 \alias{nodearea_plot}
 \title{Plot the area computation for a node}
 \usage{
-nodearea_plot(pixc_joined, nodes, node_truth = NULL, plot = TRUE)
+nodearea_plot(pixc_joined, nodes, node_truth = NULL,
+  aggmethod = c("composite", "frac", "simple"), plot = TRUE)
 }
 \arguments{
 \item{pixc_joined}{A joined pixc data frame, as returned by \code{join_pixc()}}
@@ -12,6 +13,8 @@ nodearea_plot(pixc_joined, nodes, node_truth = NULL, plot = TRUE)
 \item{nodes}{Vector giving indices of nodes to plot}
 
 \item{node_truth}{Optional truth data, as returned by \code{rt_read()}}
+
+\item{aggmethod}{aggregation method from pixels to nodes}
 
 \item{plot}{if FALSE, return the plot data but don't construct the ggplot}
 }
